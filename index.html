@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mystarsnight Shop</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family:'Segoe UI', sans-serif; background:#0b0b14; color:white; margin:0; }
+header { text-align:center; padding:30px; background:linear-gradient(90deg,#1a1a2e,#162447); box-shadow:0 4px 10px rgba(0,0,0,0.5); }
+header h1 { font-size:2.8em; margin:0; color:#ffdd59; }
+button { padding:10px 16px; margin:5px; cursor:pointer; border:none; border-radius:8px; background: linear-gradient(90deg,#ff6b6b,#feca57); color:#111; font-weight:bold; transition:0.3s; }
+button:hover { transform:scale(1.05); background:linear-gradient(90deg,#ff9f43,#ff6b6b); }
+#announcement { background:#222; padding:15px; text-align:center; font-weight:bold; color:#ffdd59; margin:10px; border-radius:8px; min-height:30px; }
+.status { text-align:center; color:#0f0; font-weight:bold; margin:5px 0; }
+#shop { display:flex; flex-wrap:wrap; justify-content:center; }
+.product { border:1px solid #444; padding:15px; margin:15px; border-radius:12px; background: linear-gradient(180deg,#1f1f2e,#162447); width:220px; text-align:center; box-shadow:0 6px 15px rgba(0,0,0,0.4); transition:0.3s; }
+.product:hover { transform:translateY(-5px); box-shadow:0 8px 20px rgba(0,0,0,0.6); }
+.product img { max-width:200px; border-radius:8px; }
+#admin { background:#111; padding:20px; margin:10px; border-radius:12px; }
+input { width:90%; padding:8px; margin:5px 0; border-radius:6px; border:none; background:#222; color:white; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th, td { padding:8px; border:1px solid #444; text-align:center; }
+th { background:#1a1a2e; }
+td input { width:80%; padding:4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mystarsnight Shop</h1>
+  <div class="status" id="status"></div>
+  <button onclick="enterAdmin()">Enter Admin Mode</button>
+  <button onclick="resetAdmin()">Reset Admin</button>
+</header>
+
+<div id="announcement"></div>
+<div id="shop"></div>
+<div id="admin"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-database.js";
+
+// ===== FIREBASE =====
+const firebaseConfig = {
+  apiKey: "AIzaSyCrG1M17Ch9Xkqhkjwlt_f47O9tZSaW688",
+  authDomain: "mystarsnight.firebaseapp.com",
+  databaseURL: "https://mystarsnight-default-rtdb.firebaseio.com",
+  projectId: "mystarsnight",
+  storageBucket: "mystarsnight.appspot.com",
+  messagingSenderId: "526625906387",
+  appId: "1:526625906387:web:b03930c110a92b1986be26",
+  measurementId: "G-XEN8RJ9LYG"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const announcementRef = ref(db,'announcement');
+const announcementEl = document.getElementById("announcement");
+
+// Show announcement in real time with duration
+onValue(announcementRef,snapshot=>{
+  const data=snapshot.val();
+  if(!data) return announcementEl.textContent="";
+  const now=Date.now();
+  if(now<data.expires) announcementEl.textContent=data.text;
+  else announcementEl.textContent="";
+});
+
+// ===== SHOP & ADMIN =====
+const ADMIN_KEY = "2238";
+let products = JSON.parse(localStorage.getItem("products")||"[]");
+
+function isAdmin(){ return localStorage.getItem("adminKey")===ADMIN_KEY; }
+
+function enterAdmin(){
+  const key = prompt("Enter admin key:");
+  if(key===ADMIN_KEY){
+    localStorage.setItem("adminKey",ADMIN_KEY);
+    alert("Admin mode activated");
+    render();
+  } else alert("Wrong key");
+}
+
+function resetAdmin(){
+  localStorage.removeItem("adminKey");
+  alert("Admin reset");
+  render();
+}
+
+function save(){ localStorage.setItem("products",JSON.stringify(products)); render(); }
+
+// Render shop and admin panel
+function render(){
+  document.getElementById("status").textContent=isAdmin()?"ADMIN MODE ACTIVE":"USER MODE";
+
+  const shop = document.getElementById("shop");
+  shop.innerHTML="<h2>Shop</h2>";
+  products.forEach((p,i)=>{
+    shop.innerHTML+=`
+      <div class="product">
+        <h3>${p.name}</h3>
+        <img src="${p.image}" alt="${p.name}"><br>
+        ${p.owned? `<a href="${p.file}" download>Download</a>` : `<a href="${p.pay}" target="_blank"><button onclick="unlock(${i})">Buy</button></a>`}
+        ${isAdmin()? `<br><button onclick="remove(${i})">Delete</button>` : ""}
+      </div>
+    `;
+  });
+
+  const admin = document.getElementById("admin");
+  admin.innerHTML="";
+  if(isAdmin()){
+    admin.innerHTML=`
+      <h2>Admin Dashboard</h2>
+      <input id="name" placeholder="Product name"><br>
+      <input id="image" placeholder="Image URL"><br>
+      <input id="file" placeholder="Download URL"><br>
+      <input id="pay" placeholder="Stripe Payment Link"><br>
+      <button onclick="add()">Add Product</button><br><br>
+      <button onclick="announce(10)">Announcement 10s</button>
+      <button onclick="announce(300)">Announcement 300s</button>
+      <button onclick="clearAnnouncements()">Clear Announcement</button>
+      <h3>Products List</h3>
+      <table id="adminTable">
+        <tr><th>#</th><th>Name</th><th>Image</th><th>File</th><th>Stripe Link</th><th>Delete</th></tr>
+      </table>
+    `;
+    updateAdminTable();
+  }
+}
+
+// Admin table for editing products
+function updateAdminTable(){
+  const table = document.getElementById("adminTable");
+  table.innerHTML='<tr><th>#</th><th>Name</th><th>Image</th><th>File</th><th>Stripe Link</th><th>Delete</th></tr>';
+  products.forEach((p,i)=>{
+    table.innerHTML+=`
+      <tr>
+        <td>${i+1}</td>
+        <td><input value="${p.name}" onchange="edit(${i},'name',this.value)"></td>
+        <td><input value="${p.image}" onchange="edit(${i},'image',this.value)"></td>
+        <td><input value="${p.file}" onchange="edit(${i},'file',this.value)"></td>
+        <td><input value="${p.pay}" onchange="edit(${i},'pay',this.value)"></td>
+        <td><button onclick="remove(${i})">Delete</button></td>
+      </tr>
+    `;
+  });
+}
+
+function add(){
+  const nameInput = document.getElementById("name").value;
+  const imageInput = document.getElementById("image").value;
+  const fileInput = document.getElementById("file").value;
+  const payInput = document.getElementById("pay").value;
+
+  if(!nameInput || !imageInput || !fileInput || !payInput){
+    alert("Please fill all fields");
+    return;
+  }
+
+  products.push({
+    name: nameInput,
+    image: imageInput,
+    file: fileInput,
+    pay: payInput,
+    owned: false
+  });
+  save();
+}
+
+function remove(i){ if(confirm("Delete this product?")){ products.splice(i,1); save(); } }
+
+function edit(i,key,value){ products[i][key]=value; save(); }
+
+function unlock(i){ setTimeout(()=>{ products[i].owned=true; save(); },3000); }
+
+function announce(seconds){
+  if(!isAdmin()) return alert("Admin only");
+  const text = prompt("Announcement text:");
+  const expires = Date.now()+seconds*1000;
+  set(announcementRef,{text,expires});
+}
+
+function clearAnnouncements(){
+  if(!isAdmin()) return alert("Admin only");
+  set(announcementRef,null);
+}
+
+// Expose globally
+window.enterAdmin = enterAdmin;
+window.resetAdmin = resetAdmin;
+window.add = add;
+window.remove = remove;
+window.edit = edit;
+window.unlock = unlock;
+window.announce = announce;
+window.clearAnnouncements = clearAnnouncements;
+
+render();
+</script>
+
+</body>
+</html>
