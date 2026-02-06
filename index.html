@@ -17,6 +17,7 @@ body{
 header{
   padding:80px 20px 60px;
   text-align:center;
+  position:relative;
 }
 
 header h1{
@@ -87,6 +88,24 @@ button.secondary{
   margin-top:80px;
 }
 
+#adminReveal{
+  background:transparent;
+  color:rgba(255,255,255,0.35);
+  font-size:28px;
+  border:none;
+  cursor:pointer;
+  letter-spacing:6px;
+}
+
+#adminReveal:hover{
+  color:rgba(255,255,255,0.7);
+}
+
+#adminLoginBox{
+  display:none;
+  margin-top:14px;
+}
+
 #adminPanel{
   display:none;
   margin-top:80px;
@@ -134,28 +153,34 @@ footer{
 
   <div class="grid" id="products"></div>
 
+  <!-- Hidden Admin Access -->
   <div class="admin-login">
-    <input id="adminKey" type="password" placeholder="Admin code">
-    <br><br>
-    <button onclick="login()">Enter Admin</button>
+    <button id="adminReveal" onclick="toggleAdminLogin()">• • •</button>
+
+    <div id="adminLoginBox">
+      <input id="adminKey" type="password" placeholder="Admin code">
+      <br><br>
+      <button onclick="login()">Enter Admin</button>
+    </div>
   </div>
 
+  <!-- Admin Panel -->
   <div id="adminPanel">
     <h2>Admin Dashboard</h2>
-    <p style="opacity:.8">Live editor — you are in control.</p>
+    <p style="opacity:.8">Live editor — changes apply instantly.</p>
 
     <div class="admin-card">
-      <h3>Brand</h3>
+      <h3>Brand Settings</h3>
       <input placeholder="Shop name" oninput="settings.name=this.value;save()">
       <input placeholder="Tagline" oninput="settings.tagline=this.value;save()">
     </div>
 
     <div class="admin-card">
-      <h3>Announcement</h3>
-      <input id="annText" placeholder="Announcement">
+      <h3>Global Announcement</h3>
+      <input id="annText" placeholder="Announcement message">
       <br><br>
-      <button onclick="announce(10)">10s</button>
-      <button class="secondary" onclick="announce(300)">300s</button>
+      <button onclick="announce(10)">Show 10s</button>
+      <button class="secondary" onclick="announce(300)">Show 300s</button>
     </div>
 
     <div class="admin-card">
@@ -193,6 +218,11 @@ let settings=JSON.parse(localStorage.getItem("settings"))||{
 
 let products=JSON.parse(localStorage.getItem("products"))||[];
 let purchases=JSON.parse(localStorage.getItem("purchases"))||[];
+
+function toggleAdminLogin(){
+  const box=document.getElementById("adminLoginBox");
+  box.style.display = box.style.display==="none" ? "block" : "none";
+}
 
 function save(){
   localStorage.setItem("settings",JSON.stringify(settings));
@@ -283,19 +313,6 @@ function announce(sec){
   announcement.textContent=annText.value;
   announcement.style.display="block";
   setTimeout(()=>announcement.style.display="none",sec*1000);
-}
-
-/* Stripe success auto-unlock */
-const params=new URLSearchParams(location.search);
-const prod=params.get("product");
-if(prod){
-  const p=products.find(x=>x.name===prod);
-  if(p){
-    p.free=true;
-    purchases.push({name:p.name,date:new Date().toLocaleString()});
-    save();
-    alert("Payment successful — unlocked!");
-  }
 }
 
 const productsEl=document.getElementById("products");
