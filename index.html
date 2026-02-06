@@ -17,7 +17,6 @@ body{
 header{
   padding:80px 20px 60px;
   text-align:center;
-  position:relative;
 }
 
 header h1{
@@ -199,6 +198,11 @@ footer{
       <h3>Purchase History</h3>
       <div id="history"></div>
     </div>
+
+    <div class="admin-card">
+      <h3>Admin Reset</h3>
+      <button class="secondary" onclick="adminReset()">RESET EVERYTHING</button>
+    </div>
   </div>
 
 </main>
@@ -220,8 +224,8 @@ let products=JSON.parse(localStorage.getItem("products"))||[];
 let purchases=JSON.parse(localStorage.getItem("purchases"))||[];
 
 function toggleAdminLogin(){
-  const box=document.getElementById("adminLoginBox");
-  box.style.display = box.style.display==="none" ? "block" : "none";
+  adminLoginBox.style.display =
+    adminLoginBox.style.display==="none" ? "block" : "none";
 }
 
 function save(){
@@ -240,14 +244,18 @@ function render(){
     productsEl.innerHTML+=`
       <div class="card">
         <img src="${p.image}">
-        <h3 contenteditable="${isAdmin}" onblur="edit(${i},'name',this.innerText)">${p.name}</h3>
-        <p contenteditable="${isAdmin}" onblur="edit(${i},'desc',this.innerText)">${p.desc}</p>
+        <h3 contenteditable="${isAdmin}" onblur="edit(${i},'name',this.innerText)">
+          ${p.name}
+        </h3>
+        <p contenteditable="${isAdmin}" onblur="edit(${i},'desc',this.innerText)">
+          ${p.desc}
+        </p>
 
         ${
           p.free
           ? `<a href="${p.file}" download><button>Download</button></a>`
           : p.stripe
-            ? `<a href="${p.stripe}" target="_blank"><button>Buy with Stripe</button></a>`
+            ? `<button onclick="buy(${i})">Buy</button>`
             : `<button disabled>Unavailable</button>`
         }
 
@@ -255,14 +263,18 @@ function render(){
           <br><br>
           <button class="secondary" onclick="move(${i},-1)">↑</button>
           <button class="secondary" onclick="move(${i},1)">↓</button>
-          <button class="secondary" onclick="toggleFree(${i})">${p.free?"Paid":"Free"}</button>
+          <button class="secondary" onclick="toggleFree(${i})">
+            ${p.free?"Paid":"Free"}
+          </button>
           <button class="secondary" onclick="remove(${i})">Delete</button>
         `:""}
       </div>
     `;
   });
 
-  history.innerHTML=purchases.map(p=>`<p>🧾 ${p.name} — ${p.date}</p>`).join("");
+  history.innerHTML=purchases
+    .map(p=>`<p>🧾 ${p.name} — ${p.date}</p>`)
+    .join("");
 }
 
 function login(){
@@ -298,9 +310,9 @@ function remove(i){
 }
 
 function move(i,dir){
-  const t=products[i];
+  const item=products[i];
   products.splice(i,1);
-  products.splice(i+dir,0,t);
+  products.splice(i+dir,0,item);
   save();
 }
 
@@ -313,6 +325,23 @@ function announce(sec){
   announcement.textContent=annText.value;
   announcement.style.display="block";
   setTimeout(()=>announcement.style.display="none",sec*1000);
+}
+
+function buy(i){
+  const p=products[i];
+  purchases.push({
+    name:p.name,
+    date:new Date().toLocaleString()
+  });
+  save();
+  window.open(p.stripe,"_blank");
+}
+
+function adminReset(){
+  if(confirm("This will erase EVERYTHING. Continue?")){
+    localStorage.clear();
+    location.reload();
+  }
 }
 
 const productsEl=document.getElementById("products");
